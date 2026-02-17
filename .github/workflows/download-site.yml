@@ -6,7 +6,7 @@ on:
       site_url:
         description: "Введите ссылку на сайт (например https://example.com)"
         required: true
-        default: "https://"
+        default: "https://example.com"
 
 jobs:
   download:
@@ -19,12 +19,15 @@ jobs:
       - name: Install wget
         run: sudo apt-get update && sudo apt-get install -y wget
 
-      - name: Download website mirror
+      - name: Download website (ONLY SAME DOMAIN)
         run: |
           mkdir site
           cd site
 
-          echo "Start downloading: ${{ github.event.inputs.site_url }}"
+          URL="${{ github.event.inputs.site_url }}"
+          DOMAIN=$(echo $URL | awk -F/ '{print $3}')
+
+          echo "Downloading only domain: $DOMAIN"
 
           set +e
           wget \
@@ -34,34 +37,29 @@ jobs:
             --convert-links \
             --adjust-extension \
             --page-requisites \
-            --span-hosts \
             --no-parent \
             --execute robots=off \
             --no-host-directories \
+            --domains=$DOMAIN \
             --tries=3 \
             --timeout=30 \
             --wait=1 \
             --random-wait \
             --retry-connrefused \
-            --user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64)" \
-            "${{ github.event.inputs.site_url }}"
+            --user-agent="Mozilla/5.0" \
+            "$URL"
 
           code=$?
 
-          # Игнорируем exit code 8 (часть файлов не скачалась — это нормально)
+          # Игнорируем exit code 8
           if [ $code -ne 0 ] && [ $code -ne 8 ]; then
             echo "Wget failed with real error code: $code"
             exit $code
           fi
 
-          echo "Wget finished with code $code (ignored if 8)"
+          echo "Wget finished with code $code"
 
-      - name: Show downloaded files
-        run: |
-          echo "Downloaded files:"
-          find site | head -50
-
-      - name: Upload site as artifact
+      - name: Upload site
         uses: actions/upload-artifact@v4
         with:
           name: downloaded-site
