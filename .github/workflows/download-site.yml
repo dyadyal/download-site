@@ -1,10 +1,10 @@
-name: Fast download website to repository
+name: Download website to repository (root)
 
 on:
   workflow_dispatch:
     inputs:
       site_url:
-        description: "Введите ссылку на сайт (например https://example.com)"
+        description: "Введите ссылку на сайт"
         required: true
         default: "https://example.com"
 
@@ -22,7 +22,7 @@ jobs:
       - name: Install wget
         run: sudo apt-get update && sudo apt-get install -y wget
 
-      - name: Download website FAST (same domain only)
+      - name: Download website
         run: |
           rm -rf site
           mkdir site
@@ -52,23 +52,27 @@ jobs:
             --dns-cache=off \
             --no-http-keep-alive \
             --reject "*.mp4,*.zip,*.rar,*.pdf" \
-            --user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64)" \
+            --user-agent="Mozilla/5.0" \
             "$URL"
 
           code=$?
 
-          # Игнорируем exit code 8 (часть файлов не скачалась — это нормально)
           if [ $code -ne 0 ] && [ $code -ne 8 ]; then
             echo "Wget failed with error code: $code"
             exit $code
           fi
 
-          echo "Download finished with code $code"
+          echo "Download finished"
 
-      - name: Move files to repository root
+      # --- ВАЖНО: убираем папку html ---
+      - name: Move files from /html to root
         run: |
           shopt -s dotglob
-          mv site/* .
+          if [ -d "site/html" ]; then
+            mv site/html/* .
+          else
+            mv site/* .
+          fi
           rm -rf site
 
       - name: Commit and push
@@ -77,5 +81,5 @@ jobs:
           git config user.email "github-actions@github.com"
 
           git add .
-          git commit -m "Auto update website snapshot" || echo "No changes"
+          git commit -m "Auto download site snapshot (root)" || echo "No changes"
           git push
