@@ -1,4 +1,4 @@
-name: Download full website
+name: Fast download website to repository
 
 on:
   workflow_dispatch:
@@ -12,6 +12,9 @@ jobs:
   download:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: write
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -19,15 +22,16 @@ jobs:
       - name: Install wget
         run: sudo apt-get update && sudo apt-get install -y wget
 
-      - name: Download website (ONLY SAME DOMAIN)
+      - name: Download website FAST (same domain only)
         run: |
+          rm -rf site
           mkdir site
           cd site
 
           URL="${{ github.event.inputs.site_url }}"
           DOMAIN=$(echo $URL | awk -F/ '{print $3}')
 
-          echo "Downloading only domain: $DOMAIN"
+          echo "Downloading domain: $DOMAIN"
 
           set +e
           wget \
@@ -41,26 +45,38 @@ jobs:
             --execute robots=off \
             --no-host-directories \
             --domains=$DOMAIN \
-            --tries=3 \
-            --timeout=30 \
-            --wait=1 \
-            --random-wait \
-            --retry-connrefused \
-            --user-agent="Mozilla/5.0" \
+            --tries=2 \
+            --timeout=20 \
+            --wait=0 \
+            --random-wait=off \
+            --dns-cache=off \
+            --no-http-keep-alive \
+            --jobs=8 \
+            --reject "*.mp4,*.zip,*.rar,*.pdf" \
+            --user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64)" \
             "$URL"
 
           code=$?
 
-          # Игнорируем exit code 8
+          # Игнорируем exit code 8 (часть файлов не скачалась — это нормально)
           if [ $code -ne 0 ] && [ $code -ne 8 ]; then
-            echo "Wget failed with real error code: $code"
+            echo "Wget failed with error code: $code"
             exit $code
           fi
 
-          echo "Wget finished with code $code"
+          echo "Download finished with code $code"
 
-      - name: Upload site
-        uses: actions/upload-artifact@v4
-        with:
-          name: downloaded-site
-          path: site
+      - name: Move files to repository root
+        run: |
+          shopt -s dotglob
+          mv site/* .
+          rm -rf site
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add .
+          git commit -m "Auto update website snapshot" || echo "No changes"
+          git push
