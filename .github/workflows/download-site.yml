@@ -1,0 +1,40 @@
+name: Download full website
+
+on:
+  workflow_dispatch:
+    inputs:
+      site_url:
+        description: "URL сайта (например https://example.com)"
+        required: true
+        default: "https://example.com"
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install wget
+        run: sudo apt-get update && sudo apt-get install -y wget
+
+      - name: Download website mirror
+        run: |
+          mkdir site
+          cd site
+          wget \
+            --mirror \
+            --convert-links \
+            --adjust-extension \
+            --page-requisites \
+            --no-parent \
+            --no-host-directories \
+            --directory-prefix=./ \
+            "${{ github.event.inputs.site_url }}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: downloaded-site
+          path: site
