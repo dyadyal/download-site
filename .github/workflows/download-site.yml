@@ -51,7 +51,6 @@ jobs:
             --random-wait=off \
             --dns-cache=off \
             --no-http-keep-alive \
-            --jobs=8 \
             --reject "*.mp4,*.zip,*.rar,*.pdf" \
             --user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64)" \
             "$URL"
